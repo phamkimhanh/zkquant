@@ -32,8 +32,8 @@ plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示问题
 # =============================================================================
 # 策略参数配置
 # =============================================================================
-STOCK_CODE = '600519.SH'  # 贵州茅台股票代码
-STOCK_NAME = '贵州茅台'
+STOCK_CODE = '600032'  # 贵州茅台股票代码
+STOCK_NAME = '浙江新能'
 
 # 网格参数
 CENTER_PRICE = 1500       # 中心价格
@@ -61,7 +61,7 @@ END_DATE = '2025-12-31'    # 回测结束日期
 COMMISSION_RATE = 0.0003   # 手续费率（万分之三，买入和卖出都收取）
 
 # 数据文件路径
-DATA_FILE = os.path.join(os.getcwd(), 'data', '600519_SH_daily.csv')
+DATA_FILE = os.path.join(os.getcwd(), 'data', '600032_daily.csv')
 
 
 def load_stock_data(data_file):

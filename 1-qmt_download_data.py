@@ -1,20 +1,19 @@
 # -*- coding: utf-8 -*-
 """
-QMT数据下载脚本
-使用xtquant下载贵州茅台股票（600519.SH）的历史数据
+A股数据下载脚本
+使用akshare下载A股股票（600032）的历史数据
 保存到本地CSV文件，供后续策略分析使用
 
-注意：运行此脚本需要安装QMT并配置好xtquant
+注意：运行此脚本需要安装akshare库：pip install akshare
 """
 import os
 import pandas as pd
-from xtquant import xtdata
-import time
+import akshare as ak
 
 
 # 数据下载参数配置
-STOCK_CODE = '600519.SH'  # 贵州茅台股票代码
-STOCK_NAME = '贵州茅台'
+STOCK_CODE = '600032'  # 浙江新能股票代码
+STOCK_NAME = '浙江新能'
 DATA_START = '20240101'   # 数据开始日期（需要足够的历史数据计算MACD）
 DATA_END = '20251231'     # 数据结束日期
 
@@ -27,82 +26,58 @@ def download_stock_data():
     print(f"股票：{STOCK_NAME}({STOCK_CODE})")
     print(f"日期范围：{DATA_START} 至 {DATA_END}")
     print("-" * 60)
-    
+
     try:
-        # 步骤1：下载历史数据
-        print("步骤1：下载历史数据...")
-        try:
-            xtdata.download_history_data(
-                stock_code=STOCK_CODE,
-                period='1d',
-                start_time=DATA_START
-            )
-            print("下载完成，等待数据写入...")
-            time.sleep(2)  # 等待数据写入
-        except Exception as e:
-            print(f"下载数据时出现警告：{e}")
-            print("继续尝试获取数据...")
-        
-        # 步骤2：获取历史数据
-        print("\n步骤2：获取历史收盘价数据...")
-        res = xtdata.get_market_data(
-            stock_list=[STOCK_CODE],
-            period='1d',
-            start_time=DATA_START,
-            end_time='',
-            count=-1,
-            dividend_type='front',  # 前复权
-            fill_data=True
+        # 使用akshare下载历史数据
+        print("步骤1：使用akshare下载历史数据...")
+
+        # 转换日期格式为akshare所需的格式
+        start_date = pd.to_datetime(DATA_START).strftime('%Y%m%d')
+        end_date = pd.to_datetime(DATA_END).strftime('%Y%m%d')
+
+        # 获取历史数据（前复权）
+        df = ak.stock_zh_a_hist(
+            symbol=STOCK_CODE,
+            period="daily",
+            start_date=start_date,
+            end_date=end_date,
+            adjust="qfq"  # 前复权
         )
-        
-        if not res or 'close' not in res or STOCK_CODE not in res['close'].index:
+
+        if df is None or len(df) == 0:
             print("错误：无法获取历史数据")
             return None
-        
-        # 提取各字段数据
-        close_df = res['close']
-        open_df = res.get('open', None)
-        high_df = res.get('high', None)
-        low_df = res.get('low', None)
-        volume_df = res.get('volume', None)
-        
-        # 获取日期列表
-        dates = close_df.columns.tolist()
-        
-        # 构建数据DataFrame
-        data_dict = {
-            'date': dates,
-            'close': close_df.loc[STOCK_CODE].values
-        }
-        
-        if open_df is not None and STOCK_CODE in open_df.index:
-            data_dict['open'] = open_df.loc[STOCK_CODE].values
-        if high_df is not None and STOCK_CODE in high_df.index:
-            data_dict['high'] = high_df.loc[STOCK_CODE].values
-        if low_df is not None and STOCK_CODE in low_df.index:
-            data_dict['low'] = low_df.loc[STOCK_CODE].values
-        if volume_df is not None and STOCK_CODE in volume_df.index:
-            data_dict['volume'] = volume_df.loc[STOCK_CODE].values
-        
-        df = pd.DataFrame(data_dict)
-        
-        # 转换日期格式
-        df['date'] = pd.to_datetime(df['date'], format='%Y%m%d', errors='coerce')
-        
+
+        # 重命名列以保持一致性
+        df = df.rename(columns={
+            '日期': 'date',
+            '开盘': 'open',
+            '收盘': 'close',
+            '最高': 'high',
+            '最低': 'low',
+            '成交量': 'volume'
+        })
+
+        # 选择需要的列
+        df = df[['date', 'open', 'close', 'high', 'low', 'volume']].copy()
+
+        # 确保日期格式正确
+        df['date'] = pd.to_datetime(df['date'])
+
         # 过滤掉无效数据
         df = df.dropna(subset=['date', 'close'])
         df = df.sort_values('date').reset_index(drop=True)
         
         print(f"成功获取 {len(df)} 条历史数据")
         print(f"数据日期范围：{df['date'].iloc[0].strftime('%Y-%m-%d')} 至 {df['date'].iloc[-1].strftime('%Y-%m-%d')}")
-        
-        # 步骤3：保存到CSV文件
-        print("\n步骤3：保存数据到CSV文件...")
+
+        # 步骤2：保存到CSV文件
+        print("\n步骤2：保存数据到CSV文件...")
         output_dir = os.path.join(os.getcwd(), 'data')
         os.makedirs(output_dir, exist_ok=True)
-        
+
         # 保存完整数据
-        output_file = os.path.join(output_dir, f'{STOCK_CODE.replace(".", "_")}_daily.csv')
+        output_file = os.path.join(output_dir, f'{STOCK_CODE}_daily.csv')
         df.to_csv(output_file, index=False, encoding='utf-8-sig')
         print(f"数据已保存至：{output_file}")
         
